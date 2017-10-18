@@ -1,0 +1,18 @@
+//IN 1 -> Touch Sensor
+
+task main()
+{
+   SetSensorTouch(IN_1);                   //initialize touch sensor
+   ClearScreen();
+   while(1){
+     until(Sensor(IN_1)==1);                //wait until push the button
+     until(Sensor(IN_1)==0);               //wait until release the button
+     TextOut(7,35,"Hello Everyone");       //show a message on screen
+     PlayTone(TONE_C4, MS_900);            //and play a tone
+     Wait(2000);                           //give time to the previous 2 commands to execute
+     ClearScreen();
+
+   }
+
+}
+
