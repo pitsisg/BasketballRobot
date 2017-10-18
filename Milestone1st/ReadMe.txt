@@ -1,4 +1,4 @@
-#BasketballRobot
+Mini-Projects Documentation
 
 Lego2 -> Εμφάνιση ενός μηνύματος στην οθόνη του brick και παραγωγή ήχου.
 
