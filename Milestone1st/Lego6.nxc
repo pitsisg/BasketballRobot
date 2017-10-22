@@ -1,24 +1,23 @@
 //IN_4  -> US Sensor
+//On this task we display the nearest detected object distance from Ultrasonic Sensor
+
 task main()
 {
    int distance;
    SetSensorUltrasonic(IN_4);
-   Wait(500); // Minimum wait time to start properly Ultrasonic Sensor
+   Wait(500); 						// Minimum wait time to start properly Ultrasonic Sensor
 
    while(1){
        ClearScreen();
-       TextOut(0,25,"Object detected");
-       TextOut(10,15,"at");
-       distance= SensorUS(IN_4);
-       NumOut(30,15,distance);
+       TextOut(0,25,"Object detected");			//
+       TextOut(10,15,"at");				//
+       distance= SensorUS(IN_4);			//
+       NumOut(30,15,distance);				//Display the nearest detected object distance 
        TextOut(50,15,"cm");
        Wait(100);
-       if(distance<20 || distance==255){ // 255 is the distance at which an object stands at 0cm from US Sensor
-           PlayTone(TONE_C6, MS_200);                // Play a tone when an objected is detected at < 20cm.
+       if(distance<20 || distance==255){ 		// 255 is the distance at which an object stands at 0cm from US Sensor
+           PlayTone(TONE_C6, MS_200);                   // Play a tone when an objected is detected at < 20cm.
        }
       }
    }
 }
-
-
-
