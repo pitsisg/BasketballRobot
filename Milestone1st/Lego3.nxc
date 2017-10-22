@@ -1,40 +1,41 @@
 //IN 1 -> Touch Sensor
-//OUT B -> Motor
-mutex moveMutex;
+//On this tutorial we start by displaying some messages to the brick screen as the ScreenSet task shows. When the touch sensor is pressed the brick changes the message on the screen and plays a tone
+#include "NXCDefs.h"
 
+mutex printMutex;
 
-task MotorStop() {
+task SensorCheck() {				   // Brick Message and Tone 
      while(true)
-     {
-         Acquire(moveMutex);
-         ClearScreen();
-         Off(OUT_B);                          //stop the motor
-         TextOut(5,24,"Motor is not");
-         TextOut(5,23,"Moving");
-         Wait(200);
-         Release(moveMutex);
-     }
-}
-
-task SensorCheck() {
-     while(true)
-     {
-          if(SENSOR_1 == 1)
+     {                                              
+          if(SENSOR_1 == 1)			   //check if touch sensor is pushed
           {
-              Acquire(moveMutex);
-              ClearScreen();
-              OnFwd(OUT_B,50);
-              TextOut(5,24,"Motor is Moving");     //print a text in the screen of
-              Wait(100);
-              until(SENSOR_1 == 0);
-              Release(moveMutex);
-          }
+              Acquire(printMutex);		   //(acquire) grab mutex when it's free
+              TextOut(7,35,"Button Pushed");       //show a message on screen of the brick
+              PlayTone(TONE_C4, MS_400);	   // play a tone from brick
+              Wait(500);			   //wait for the message to be displayed and the tone to be played
+              ClearScreen();			   
+              //until(SENSOR_1 == 0);
+              Release(printMutex);		   //release mutex
+          }					   
+						   
      }
 }
 
+task ScreenSet() {			
+     while (true)
+     {
+          Acquire(printMutex);		     //grab mutex when it's free
+          TextOut(7,35,"Hello World");       //show a message on screen
+          TextOut(7,15,"Push the button");   //show a message on screen
+          Wait(20);			     //wait for the messages to be displayed
+          ClearScreen();
+          Release(printMutex);		     //release mutex
+     }
+
+}
 
 task main()
 {
    SetSensor(IN_1,SENSOR_TOUCH);                   //initialize touch sensor
-   Precedes( MotorStop,SensorCheck);
+   Precedes(SensorCheck, ScreenSet);               //run tasks simultaneously
 }
