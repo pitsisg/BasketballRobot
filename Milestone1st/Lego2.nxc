@@ -1,18 +1,40 @@
 //IN 1 -> Touch Sensor
+#include "NXCDefs.h"
+
+mutex printMutex;
+
+task SensorCheck() {
+     while(true)
+     {
+          if(SENSOR_1 == 1)
+          {
+              Acquire(printMutex);
+              TextOut(7,35,"Button Pushed");       //show a message on screen
+              PlayTone(TONE_C4, MS_400);
+              Wait(500);
+              ClearScreen();
+              //until(SENSOR_1 == 0);
+              Release(printMutex);
+          }
+     }
+}
+
+task ScreenSet() {
+     while (true)
+     {
+          Acquire(printMutex);
+          TextOut(7,35,"Hello World");       //show a message on screen
+          TextOut(7,15,"Push the button");   //show a message on screen
+          Wait(20);
+          ClearScreen();
+          Release(printMutex);
+     }
+
+}
 
 task main()
 {
-   SetSensorTouch(IN_1);                   //initialize touch sensor
-   ClearScreen();
-   while(1){
-     until(Sensor(IN_1)==1);                //wait until push the button
-     until(Sensor(IN_1)==0);               //wait until release the button
-     TextOut(7,35,"Hello Everyone");       //show a message on screen
-     PlayTone(TONE_C4, MS_900);            //and play a tone
-     Wait(2000);                           //give time to the previous 2 commands to execute
-     ClearScreen();
-
-   }
-
+   SetSensor(IN_1,SENSOR_TOUCH);                   //initialize touch sensor
+   Precedes(SensorCheck, ScreenSet);
 }
 

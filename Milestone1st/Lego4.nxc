@@ -1,27 +1,42 @@
 // IN1 -> Touch sensor
 // OUT_B -> Motor
+mutex moveMutex;
 
-task main()
-{
-   SetSensorTouch(IN_1);  // initiliaze touch sensor
-   while(1){
-      ClearScreen();
-      while(Sensor(IN_1)==1){
-         RotateMotor(OUT_B,70,90);  // motor starts moving forward
-         TextOut(5,24,"Motor is Moving");
-         TextOut(5,23,"Forward");
-         Wait(5);
-      }
-      ClearScreen();
-      while(Sensor(IN_1)==0){
+task MotorSetB() {
+     while(true)
+     {
+         Acquire(moveMutex);
+         //ClearScreen();
          RotateMotor(OUT_B,70,-90);  // motor starts moving backward
          TextOut(5,24,"Motor is Moving");
          TextOut(5,23,"Backward");
-         Wait(5);
-      }
-   }
+         Wait(100);
+         Release(moveMutex);
+     }
+}
 
+task SensorCheck() {
+     while(true)
+     {
+          if(SENSOR_1 == 1)
+          {
+              Acquire(moveMutex);
+              ClearScreen();
+              while(SENSOR_1 == 1){
+                  RotateMotor(OUT_B,70,90);  // motor starts moving forward
+                  TextOut(5,24,"Motor is Moving");
+                  TextOut(5,23,"Forward");
+                  Wait(100);
+              }
+              Release(moveMutex);
+          }
+     }
 }
 
 
+task main()
+{
+   SetSensor(IN_1,SENSOR_TOUCH);                   //initialize touch sensor
+   Precedes(MotorSetB,SensorCheck);
+}
 
