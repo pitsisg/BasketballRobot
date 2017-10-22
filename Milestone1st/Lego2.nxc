@@ -1,33 +1,35 @@
 //IN 1 -> Touch Sensor
+//On this tutorial we start by displaying some messages to the brick screen as the ScreenSet task shows. When the touch sensor is pressed the brick changes the message on the screen and plays a tone
 #include "NXCDefs.h"
 
 mutex printMutex;
 
-task SensorCheck() {
+task SensorCheck() {				   // Brick Message and Tone 
      while(true)
-     {
-          if(SENSOR_1 == 1)
+     {                                              
+          if(SENSOR_1 == 1)			   //check if touch sensor is pushed
           {
-              Acquire(printMutex);
-              TextOut(7,35,"Button Pushed");       //show a message on screen
-              PlayTone(TONE_C4, MS_400);
-              Wait(500);
-              ClearScreen();
+              Acquire(printMutex);		   //(acquire) grab mutex when it's free
+              TextOut(7,35,"Button Pushed");       //show a message on screen of the brick
+              PlayTone(TONE_C4, MS_400);	   // play a tone from brick
+              Wait(500);			   //wait for the message to be displayed and the tone to be played
+              ClearScreen();			   
               //until(SENSOR_1 == 0);
-              Release(printMutex);
-          }
+              Release(printMutex);		   //release mutex
+          }					   
+						   
      }
 }
 
-task ScreenSet() {
+task ScreenSet() {			
      while (true)
      {
-          Acquire(printMutex);
+          Acquire(printMutex);		     //grab mutex when it's free
           TextOut(7,35,"Hello World");       //show a message on screen
           TextOut(7,15,"Push the button");   //show a message on screen
-          Wait(20);
+          Wait(20);			     //wait for the messages to be displayed
           ClearScreen();
-          Release(printMutex);
+          Release(printMutex);		     //release mutex
      }
 
 }
@@ -35,6 +37,5 @@ task ScreenSet() {
 task main()
 {
    SetSensor(IN_1,SENSOR_TOUCH);                   //initialize touch sensor
-   Precedes(SensorCheck, ScreenSet);
+   Precedes(SensorCheck, ScreenSet);               //run tasks simultaneously
 }
-
