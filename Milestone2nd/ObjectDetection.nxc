@@ -1,0 +1,124 @@
+#include "NXCDefs.h"
+
+#define degrees MotorRotationCount(OUT_B)
+#define maxDistance 21
+#define MBP 15   //MOTOR B POWER
+
+mutex printMutex , moveMutexA, moveMutexB ,initMutex;
+enum States { INIT, T_SENSOR_PUSHED, OBJ_DETECTED , THROW, EXITED} State;
+int throwDistance;
+
+void PrintMessage(){
+	if(State==INIT){
+    	TextOut(0, LCD_LINE1,"Push the button");					//Display messages on brick
+        TextOut(0, LCD_LINE2,"to play");
+	}
+
+	if(State==T_SENSOR_PUSHED){
+    	TextOut(0, LCD_LINE1,"Basket detection");					//Display messages on brick
+	}
+
+	if(State==OBJ_DETECTED){
+    	TextOut(0, LCD_LINE1,"Basket detected");					//Display messages on brick
+	}
+
+
+
+	if(State==EXITED){
+    	TextOut(0, LCD_LINE1,"Undetected Basket");					//Display messages on brick
+	    TextOut(0, LCD_LINE2,"Reset");					//Display messages on brick
+	}
+}
+
+task Message(){
+	while(true)
+    {
+        Acquire(printMutex);							//(acquire) grab mutex when it's free
+        PrintMessage();
+        Wait(10);								//wait for the messages to be displayed
+        Release(printMutex);							//release mutex
+    }
+}
+
+
+int distanceUS() {              // get the median of 3 numbers with min no of comparisons
+    int d1= SensorUS(IN_1);
+    int d2= SensorUS(IN_1);
+    int d3= SensorUS(IN_1);
+    int x = d1-d2;
+    int y = d2-d3;
+    int z = d1-d3;
+    if(x*y > 0) return d2;
+    if(x*z > 0) return d3;
+    return d1;
+}
+
+
+
+task US_ObjDet() {
+     while(true)
+     {
+        throwDistance=distanceUS();
+        if(throwDistance<maxDistance)			   //check if touch sensor is pushed
+        {
+
+            Acquire(moveMutexB);		   //(acquire) grab mutex when it's free
+
+            Release(moveMutexB);		   //release mutex
+
+
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State= OBJ_DETECTED;
+            Release(printMutex);		   //release mutex
+            Off(OUT_B);
+        }
+        if(degrees<-190){
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State= EXITED;
+            Release(printMutex);		   //release mutex
+            Off(OUT_B);
+        }
+
+    }
+}
+
+
+
+task TSensorInterupt() {
+    while(true)
+    {
+        if(SENSOR_4 == 1)			   //check if touch sensor is pushed
+        {
+            Acquire(moveMutexB);
+            OnFwd(OUT_B,-MBP);
+            Release(moveMutexB);		   //release mutex
+
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State=T_SENSOR_PUSHED;
+            Release(printMutex);		   //release mutex
+
+            ExitTo(US_ObjDet);
+        }
+    }
+}
+
+
+task sub_main() {
+    ClearScreen();
+    State=INIT;
+    Precedes(Message,TSensorInterupt);
+}
+
+
+task main()
+{
+    SetSensor(IN_4,SENSOR_TOUCH);                   //initialize touch sensor
+    SetSensorUltrasonic(IN_1);                    //initialize Ultrasonic sensor
+    ClearScreen();
+    State=EXITED;
+    Precedes(sub_main);
+
+}

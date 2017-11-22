@@ -1,0 +1,112 @@
+#include "NXCDefs.h"
+
+#define degrees MotorRotationCount(OUT_B)
+#define maxDistance 21
+#define MBP 15   //MOTOR B POWER
+mutex printMutex , moveMutexA, moveMutexB ,initMutex;
+int throwPower,throwDistance;
+enum States { INIT, T_SENSOR_PUSHED, OBJ_DETECTED , THROW, EXITED} State;
+task sub_main();
+
+int distanceUS() {              // get the median of 3 numbers with min no of comparisons
+    int d1= SensorUS(IN_1);
+    int d2= SensorUS(IN_1);
+    int d3= SensorUS(IN_1);
+    int x = d1-d2;
+    int y = d2-d3;
+    int z = d1-d3;
+    if(x*y > 0) return d2;
+    if(x*z > 0) return d3;
+    return d1;
+}
+int MtPower(){
+    long dis = throwDistance;
+    long dis2=dis*dis;
+    long dis3=dis*dis2;
+    long dis4=dis*dis3;
+    NumOut(0,0,dis);
+    //int motor_throw_power=0.0019*dis4+0.097*dis3-2.063*dis2+20.94*dis-38.21;
+    ///int motor_throw_power=-0.0032*dis4+0.1721*dis3-3.2842*dis2+28.584*dis-53.705;
+    int motor_throw_power=-0.0003*dis4+0.0272*dis3-0.76*dis2+11.377*dis-10.327;
+    if (motor_throw_power>100 || motor_throw_power<0 )
+        motor_throw_power=100;
+    return motor_throw_power;
+}
+
+void PrintMessage(){
+	if(State==INIT){
+    	TextOut(0, LCD_LINE1,"Push the button");					//Display messages on brick
+        TextOut(0, LCD_LINE2,"to play");
+	}
+
+	if(State==T_SENSOR_PUSHED){
+    	TextOut(0, LCD_LINE1,"Basket detection");					//Display messages on brick
+	}
+
+	if(State==OBJ_DETECTED){
+    	TextOut(0, LCD_LINE1,"Basket detected");					//Display messages on brick
+	}
+
+	if(State==THROW){
+	    TextOut(0, LCD_LINE1,"Distance");					//Display messages on brick
+	    NumOut(40, LCD_LINE2,throwDistance);					//Display messages on brick
+	    TextOut(0, LCD_LINE3,"Power");					//Display messages on brick
+	    NumOut(40, LCD_LINE4,throwPower);					//Display messages on brick
+	}
+
+	if(State==EXITED){
+    	TextOut(0, LCD_LINE1,"Undetected Basket");					//Display messages on brick
+	    TextOut(0, LCD_LINE2,"Reset");					//Display messages on brick
+	}
+}
+
+task Message(){
+	while(true)
+    {
+        Acquire(printMutex);							//(acquire) grab mutex when it's free
+        PrintMessage();
+        Wait(10);								//wait for the messages to be displayed
+        Release(printMutex);							//release mutex
+    }
+}
+
+task BallThrow(){ // shoot thr ball
+  while(true){
+  if(SENSOR_4 == 1)			   //check if touch sensor is pushed
+  {
+    throwDistance=distanceUS();
+    throwPower=MtPower();
+
+    Acquire(printMutex);		   //(acquire) grab mutex when it's free
+    ClearScreen();
+    State= THROW;
+    Release(printMutex);		   //release mutex
+
+    Acquire(moveMutexA);		   //(acquire) grab mutex when it's free
+    RotateMotor(OUT_A,throwPower,100); //reset the shooter
+    Wait(1000);
+    Release(moveMutexA);		   //release mutex
+   	Acquire(moveMutexA);		   //(acquire) grab mutex when it's free
+    RotateMotor(OUT_A,20,-100); 	   //reset the MOTOR A
+    Release(moveMutexA);
+    ExitTo(sub_main);
+   }
+   }
+}
+
+task sub_main() {
+    ClearScreen();
+    State=INIT;
+    Precedes(Message,BallThrow);
+}
+
+
+task main()
+{
+    SetSensor(IN_4,SENSOR_TOUCH);                   //initialize touch sensor
+    SetSensorUltrasonic(IN_1);                    //initialize Ultrasonic sensor
+    ClearScreen();
+    State=EXITED;
+    Precedes(sub_main);
+
+}

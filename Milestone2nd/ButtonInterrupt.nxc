@@ -1,0 +1,52 @@
+#define MBP 15   //MOTOR B POWER
+mutex printMutex , moveMutexB ;
+enum States { INIT, T_SENSOR_PUSHED} State;
+
+
+
+void PrintMessage(){
+	if(State==INIT){
+    	TextOut(0, LCD_LINE1,"Push the button");					//Display messages on brick
+        TextOut(0, LCD_LINE2,"to play");
+	}
+
+	if(State==T_SENSOR_PUSHED){
+    	TextOut(0, LCD_LINE1,"Sensor Pushed");					//Display messages on brick
+	}
+
+}
+
+task Message(){
+	while(true)
+    {
+        Acquire(printMutex);							//(acquire) grab mutex when it's free
+        PrintMessage();
+        Wait(10);								//wait for the messages to be displayed
+        Release(printMutex);							//release mutex
+    }
+}
+
+task TSensorInterupt() {
+    while(true)
+    {
+        if(SENSOR_4 == 1)			   //check if touch sensor is pushed
+        {
+
+
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State=T_SENSOR_PUSHED;
+            Release(printMutex);		   //release mutex
+
+        }
+    }
+}
+
+
+task main()
+{
+    SetSensor(IN_4,SENSOR_TOUCH);                   //initialize touch sensor
+    ClearScreen();
+    Precedes(Message,TSensorInterupt);
+
+}
