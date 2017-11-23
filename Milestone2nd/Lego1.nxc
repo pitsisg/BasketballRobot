@@ -1,3 +1,11 @@
+/*
+Project : Basketball Robot 
+
+Team : Pitsis Antonios Georgios  Zacheilas Theofilos
+
+
+*/
+
 #include "NXCDefs.h"
 
 #define degrees MotorRotationCount(OUT_B)
@@ -15,7 +23,11 @@ mutex printMutex , moveMutexA, moveMutexB ,initMutex;
 int throwPower,throwDistance;
 enum States { INIT, T_SENSOR_PUSHED, OBJ_DETECTED , THROW, EXITED} State;
 
-int distanceUS() {              // get the median of 3 numbers with min no of comparisons
+/* 
+Get the median of 3 numbers with min number of comparisons
+Return median distance of US
+*/
+int distanceUS() {             
     int d1= SensorUS(IN_1);
     int d2= SensorUS(IN_1);
     int d3= SensorUS(IN_1);
@@ -27,6 +39,11 @@ int distanceUS() {              // get the median of 3 numbers with min no of co
     return d1;
 }
 
+/*
+Calibrate the Robot to the target 
+It founds the edges of the basket and calibrate to the center 
+
+*/
 void Calibrate(){
 
      until(distanceUS()>maxDistance);
@@ -45,7 +62,10 @@ void Calibrate(){
      Wait(20);
 
 }
-
+/*
+Calculate the power needed to make the shot accordingly distance of the basket
+Return Throw power.
+*/
 int MtPower(){
     long dis = throwDistance;
     long dis2=dis*dis;
@@ -59,7 +79,10 @@ int MtPower(){
         motor_throw_power=100;
     return motor_throw_power;
 }
+/*
+Display messages on brick accordingly the state of the process
 
+*/
 void PrintMessage(){
 	if(State==INIT){
     	TextOut(0, LCD_LINE1,"Push the button");					//Display messages on brick
@@ -96,7 +119,9 @@ task Message(){
         Release(printMutex);							//release mutex
     }
 }
-
+/*
+Return the robot to the init state when the shot completed
+*/
 task ResetMov(){
 	Acquire(moveMutexA);		   //(acquire) grab mutex when it's free
     RotateMotor(OUT_A,20,-100); 	   //reset the MOTOR A 
@@ -112,6 +137,9 @@ task ResetMov(){
 
 }
 
+/*
+Return the robot to the init state when no basket founded
+*/
 task Reset(){
      Acquire(moveMutexB);		   //(acquire) grab mutex when it's free
      RotateMotor(OUT_B,20, -degrees); 	   //reset the MOTOR B
@@ -121,6 +149,9 @@ task Reset(){
 
      ExitTo(sub_main);
 }
+/*
+Shoot the ball with throwPower at 100 degrees
+*/
 
 task BallThrow(){ // shoot thr ball
 
@@ -138,6 +169,12 @@ task BallThrow(){ // shoot thr ball
     ExitTo(ResetMov);	
 }
 
+/*
+
+This task detects when a object placed in distance less than maxDistance
+When US didn't detect the object or any other threshold reached detection ended
+and th robot return to init state  
+*/
 
 task US_ObjDet() {
      while(true)
