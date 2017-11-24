@@ -1,0 +1,260 @@
+/*
+Project : Basketball Robot
+
+Team : Pitsis Antonios Georgios  Zacheilas Theofilos
+
+In this program we finalize the robot's behaviour. This happens by passing through 4 stages. Firstly we wait until the touch sensor is pushed.
+Then the robot starts searching for a specific target. Once the target is found it computes the approximate power that must be used during the ball throwing
+depending from the distance that the ultrasonic sensor has from the target. After the throw is completed the robot returns to its starting position.
+In case that the target is missing or is not detected the robot returns again to its starting position after having been rotated for 180 degrees
+compared to its starting position.
+
+*/
+
+#include "NXCDefs.h"
+
+#define degrees MotorRotationCount(OUT_B)
+#define maxDistance 21
+#define MBP 15   //MOTOR B POWER
+task sub_main();
+task TSensorInterupt();
+task BallThrow();
+task US_ObjDet();
+task Message();
+task ResetMov();
+
+mutex printMutex , moveMutexA, moveMutexB ,initMutex;
+
+int throwPower,throwDistance;
+enum States { INIT, T_SENSOR_PUSHED, OBJ_DETECTED , THROW, EXITED} State;
+
+/*
+Get the median of 3 numbers with min number of comparisons
+Return median distance of US
+*/
+int distanceUS() {
+    int d1= SensorUS(IN_1);
+    int d2= SensorUS(IN_1);
+    int d3= SensorUS(IN_1); 
+    int x = d1-d2;
+    int y = d2-d3;
+    int z = d1-d3;
+    if(x*y > 0) return d2;
+    if(x*z > 0) return d3;
+    return d1;
+}
+
+/*
+Calibrate the Robot to the target
+It founds the edges of the basket and calibrate to the center
+
+*/
+void Calibrate(){
+
+     until(distanceUS()>maxDistance);
+     Off(OUT_B);
+     long left=degrees;
+     Wait(20);
+     OnFwd(OUT_B,MBP);                         //the function that places the robot to be looking the middle of the target .
+     until(distanceUS()<maxDistance);
+     until(distanceUS()>maxDistance);
+     Off(OUT_B);
+     long right=degrees;
+     Wait(20);
+     NumOut(0,LCD_LINE5,left);
+     NumOut(0,LCD_LINE6,right);
+     RotateMotor(OUT_B,10,(left-right)/2);
+     Wait(20);
+
+}
+/*
+Calculate the power needed to make the shot accordingly distance of the basket
+Return Throw power.
+*/
+int MtPower(){
+    long dis = throwDistance;
+    long dis2=dis*dis;
+    long dis3=dis*dis2;
+    long dis4=dis*dis3;
+    NumOut(0,0,dis);
+    //int motor_throw_power=0.0019*dis4+0.097*dis3-2.063*dis2+20.94*dis-38.21;
+    ///int motor_throw_power=-0.0032*dis4+0.1721*dis3-3.2842*dis2+28.584*dis-53.705;
+    int motor_throw_power=-0.0003*dis4+0.0272*dis3-0.76*dis2+11.377*dis-10.327;
+    if (motor_throw_power>100 || motor_throw_power<0 )
+        motor_throw_power=100;
+    return motor_throw_power;
+}
+/*
+Display messages on brick accordingly the state of the process
+
+*/
+void PrintMessage(){
+	if(State==INIT){
+    	TextOut(0, LCD_LINE1,"Push the button");					//Display messages on brick
+        TextOut(0, LCD_LINE2,"to play");
+	}
+
+	if(State==T_SENSOR_PUSHED){
+    	TextOut(0, LCD_LINE1,"Basket detection");					//Display messages on brick
+	}
+
+	if(State==OBJ_DETECTED){
+    	TextOut(0, LCD_LINE1,"Basket detected");					//Display messages on brick
+	}
+
+	if(State==THROW){
+	    TextOut(0, LCD_LINE1,"Distance");					//Display messages on brick
+	    NumOut(40, LCD_LINE2,throwDistance);					//Display messages on brick
+	    TextOut(0, LCD_LINE3,"Power");					//Display messages on brick
+	    NumOut(40, LCD_LINE4,throwPower);					//Display messages on brick
+	}
+
+	if(State==EXITED){
+    	TextOut(0, LCD_LINE1,"Undetected Basket");					//Display messages on brick
+	    TextOut(0, LCD_LINE2,"Reset");					//Display messages on brick
+	}
+}
+
+/*
+This task called from Sub_main and during the stages displays the appropriate messages on the screen.
+*/
+task Message(){
+	while(true)
+    {
+        Acquire(printMutex);							//(acquire) grab mutex when it's free
+        PrintMessage();
+        Wait(10);								//wait for the messages to be displayed
+        Release(printMutex);							//release mutex
+    }
+}
+/*
+Return the robot to the init state when the shot is completed ,
+terminate it's own task and respawn ti sub_main to re-schedule the main behavior.  
+*/
+task ResetMov(){
+    Acquire(moveMutexA);		   //(acquire) grab mutex when it's free
+    RotateMotor(OUT_A,20,-100); 	   //reset the MOTOR A
+    Release(moveMutexA);		   //release mutex
+
+	Acquire(moveMutexB);		   //(acquire) grab mutex when it's free
+    RotateMotor(OUT_B,20, -degrees); 	   //reset the MOTOR B
+    Release(moveMutexB);		   //release mutex
+
+    Wait(300);
+    State=EXITED;
+    ExitTo(sub_main);
+
+}
+
+/*
+Return the robot to the init state when no basket was found
+*/
+task Reset(){
+     Acquire(moveMutexB);		   //(acquire) grab mutex when it's free
+     RotateMotor(OUT_B,20, -degrees); 	   //reset the MOTOR B
+     Release(moveMutexB);		   //release mutex
+
+     Wait(300);
+
+     ExitTo(sub_main);
+}
+/*
+Shoot the ball with the appropriate throwPower and for 100 degrees
+When shoot completed end this task and continue to ResetMov task
+*/
+
+task BallThrow(){ // shoot thr ball
+
+    throwPower=MtPower();
+
+    Acquire(printMutex);		   //(acquire) grab mutex when it's free
+    ClearScreen();
+    State= THROW;
+    Release(printMutex);		   //release mutex
+
+    Acquire(moveMutexA);		   //(acquire) grab mutex when it's free
+    RotateMotor(OUT_A,throwPower,100); //reset the shooter
+    Wait(1000);
+    Release(moveMutexA);		   //release mutex
+    ExitTo(ResetMov);
+}
+
+/*
+
+This task detects an object that is placed in distance less than maxDistance.
+When US doesn't detect the object or reaches the maximum detective distance the task stops
+and the robot returns to init state
+*/
+
+task US_ObjDet() {
+     while(true)
+     {
+        throwDistance=distanceUS();
+        if(throwDistance<maxDistance)			   //check if touch sensor is pushed
+        {
+
+            Acquire(moveMutexB);		   //(acquire) grab mutex when it's free
+            Calibrate();
+            Release(moveMutexB);		   //release mutex
+
+            throwDistance=distanceUS();
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State= OBJ_DETECTED;
+            Release(printMutex);		   //release mutex
+            ExitTo(BallThrow);
+        }
+        if(degrees<-190){
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State= EXITED;
+            Release(printMutex);		   //release mutex
+            ExitTo(Reset);
+        }
+
+    }
+}
+
+/*
+In this task we create an InterruptHandler behavior.
+When this tasks runs checks if TouchSensor pushed ,when this happened
+send an interupt state to the programm end it's own task and start US_objDet task 
+
+*/
+task TSensorInterupt() {
+    while(true)
+    {
+        if(SENSOR_4 == 1)			   //check if touch sensor is pushed
+        {
+            Acquire(moveMutexB);
+            OnFwd(OUT_B,-MBP);
+            Release(moveMutexB);		   //release mutex
+
+            Acquire(printMutex);		   //(acquire) grab mutex when it's free
+            ClearScreen();
+            State=T_SENSOR_PUSHED;
+            Release(printMutex);		   //release mutex
+
+            ExitTo(US_ObjDet);
+        }
+    }
+}
+/*
+This is task is the scheduler and the initializer of the program
+*/
+task sub_main() {
+    ClearScreen();
+    State=INIT;
+    Precedes(Message,TSensorInterupt);
+}
+
+
+task main()
+{
+    SetSensor(IN_4,SENSOR_TOUCH);                   //initialize touch sensor
+    SetSensorUltrasonic(IN_1);                    //initialize Ultrasonic sensor
+    ClearScreen();
+    State=EXITED;
+    Precedes(sub_main);
+
+}
